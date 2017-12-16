@@ -83,7 +83,8 @@ namespace ComputerGraphicsProject1
                         modifiedBitmap = new WriteableBitmap(new BitmapImage(new Uri(path)));
                         grayScaleBitmap = new WriteableBitmap(new BitmapImage(new Uri(path)));
                         photoImage.Source = myimage.Source;
-                        ToGrayScale();
+                        grayScaleBitmap = new WriteableBitmap(bitmap);
+                        ToGrayScale(grayScaleBitmap);
                         beginningLabel.Visibility = Visibility.Collapsed;
                         negationButton.IsEnabled = true;
                         grayScaleButton.IsEnabled = true;
@@ -100,7 +101,7 @@ namespace ComputerGraphicsProject1
                         randomDitheringLevelComboBox.IsEnabled = true;
                         octreeColorQuantizationSlider.IsEnabled = true;
                         embossSouthButton.IsEnabled = true;
-
+                        IrisDetectionButton.IsEnabled = true;
                     }
                     catch
                     {
@@ -145,15 +146,15 @@ namespace ComputerGraphicsProject1
             photoImage.Source = modifiedBitmap;
         }
 
-        private void ToGrayScale()
+        private void ToGrayScale(WriteableBitmap inputBitamp)
         {
-            int stride = bitmap.PixelWidth * 4;
-            int size = bitmap.PixelHeight * stride;
+            int stride = inputBitamp.PixelWidth * 4;
+            int size = inputBitamp.PixelHeight * stride;
             byte[] pixels = new byte[size];
-            bitmap.CopyPixels(pixels, stride, 0);
-            for (int y = 0; y < bitmap.PixelHeight; y++)
+            inputBitamp.CopyPixels(pixels, stride, 0);
+            for (int y = 0; y < inputBitamp.PixelHeight; y++)
             {
-                for (int x = 0; x < bitmap.PixelWidth; x++)
+                for (int x = 0; x < inputBitamp.PixelWidth; x++)
                 {
                     int index = y * stride + 4 * x;
                     byte red = pixels[index];
@@ -170,7 +171,7 @@ namespace ComputerGraphicsProject1
                 }
             }
             prevSliderValue = 0;
-            grayScaleBitmap.WritePixels(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight), pixels, stride, 0);
+            inputBitamp.WritePixels(new Int32Rect(0, 0, inputBitamp.PixelWidth, inputBitamp.PixelHeight), pixels, stride, 0);
         }
         private void GrayScaleButton_Click(object sender, RoutedEventArgs e)
         {
@@ -233,24 +234,30 @@ namespace ComputerGraphicsProject1
 
         private void ThresholdSlider_DragCompleted(object sender, RoutedEventArgs e)
         {
-            int stride = grayScaleBitmap.PixelWidth * 4;
-            int size = grayScaleBitmap.PixelHeight * stride;
-            byte[] pixels = new byte[size];
-            grayScaleBitmap.CopyPixels(pixels, stride, 0);
             int sliderValue = (int)thresholdSlider.Value;
+            modifiedBitmap = new WriteableBitmap(grayScaleBitmap);
+            photoImage.Source = ComputeThresholdImage(modifiedBitmap, sliderValue);
+        }
+
+        private WriteableBitmap ComputeThresholdImage(WriteableBitmap inputBitmap, int threshold)
+        {
+            int stride = inputBitmap.PixelWidth * 4;
+            int size = inputBitmap.PixelHeight * stride;
+            byte[] pixels = new byte[size];
+            inputBitmap.CopyPixels(pixels, stride, 0);
             // if (sliderValue > prevSliderValue)
             // {
-            for (int y = 0; y < bitmap.PixelHeight; y++)
+            for (int y = 0; y < inputBitmap.PixelHeight; y++)
             {
-                for (int x = 0; x < bitmap.PixelWidth; x++)
+                for (int x = 0; x < inputBitmap.PixelWidth; x++)
                 {
                     int index = y * stride + 4 * x;
                     //red
-                    if(pixels[index]>sliderValue)
+                    if (pixels[index] > threshold)
                     {
                         pixels[index] = 255;
-                        pixels[index+1] = 255;
-                        pixels[index+2] = 255;
+                        pixels[index + 1] = 255;
+                        pixels[index + 2] = 255;
                     }
                     else
                     {
@@ -262,9 +269,8 @@ namespace ComputerGraphicsProject1
                     byte alpha = pixels[index + 3];
                 }
             }
-            prevSliderValue = sliderValue;
-            modifiedBitmap.WritePixels(new Int32Rect(0, 0, grayScaleBitmap.PixelWidth, grayScaleBitmap.PixelHeight), pixels, stride, 0);
-            photoImage.Source = modifiedBitmap;
+            inputBitmap.WritePixels(new Int32Rect(0, 0, grayScaleBitmap.PixelWidth, grayScaleBitmap.PixelHeight), pixels, stride, 0);
+            return inputBitmap;
         }
 
         private void contrastSlider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
@@ -369,13 +375,13 @@ namespace ComputerGraphicsProject1
             modifiedBitmap.WritePixels(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight), pixels, stride, 0);
             photoImage.Source = modifiedBitmap;
         }        
-        public static WriteableBitmap convolutionFunction(int[][] filter,int valueD=0,int offset=0,int[] pivot = null)
+        public static WriteableBitmap convolutionFunction(WriteableBitmap inputBitmap, int[][] filter,int valueD=0,int offset=0,int[] pivot = null)
         {
-            int stride = bitmap.PixelWidth * 4;
-            int size = bitmap.PixelHeight * stride;
+            int stride = inputBitmap.PixelWidth * 4;
+            int size = inputBitmap.PixelHeight * stride;
             byte[] pixels = new byte[size];
             byte[] pixels2 = new byte[size];
-            bitmap.CopyPixels(pixels, stride, 0);
+            inputBitmap.CopyPixels(pixels, stride, 0);
             int filterWidth = filter.GetLength(0);
             int filterHeight = filter[0].GetLength(0);
             int pivotX = 0;
@@ -390,9 +396,9 @@ namespace ComputerGraphicsProject1
                 pivotX = pivot[0];
                 pivotY = pivot[1];
             }
-            for (int y = 0; y < bitmap.PixelHeight; y++)
+            for (int y = 0; y < inputBitmap.PixelHeight; y++)
             {
-                for (int x = 0; x < bitmap.PixelWidth; x++)
+                for (int x = 0; x < inputBitmap.PixelWidth; x++)
                 {
 
                     int sumRed=0;
@@ -406,7 +412,7 @@ namespace ComputerGraphicsProject1
                         for (int j = 0; j < filterHeight; j++)
                         {
                             int tmpIndex = (y + j - pivotY) * stride + 4 * (x + i -pivotX);
-                            if (!((y + j - pivotY) < 0 || (y + j - pivotY) > bitmap.PixelHeight || (x + i - pivotX) < 0 || (x + i - pivotX) > bitmap.PixelWidth || tmpIndex >= pixels.Length) )
+                            if (!((y + j - pivotY) < 0 || (y + j - pivotY) > inputBitmap.PixelHeight || (x + i - pivotX) < 0 || (x + i - pivotX) > inputBitmap.PixelWidth || tmpIndex >= pixels.Length) )
                             {
                                 sumRed += filter[i][j] * pixels[tmpIndex];
                                 sumGreen += filter[i][j] * pixels[tmpIndex + 1];
@@ -469,7 +475,7 @@ namespace ComputerGraphicsProject1
                     //pixels[index] = Convert.ToByte(tmp);
                 }
             }
-            modifiedBitmap.WritePixels(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight), pixels2, stride, 0);
+            modifiedBitmap.WritePixels(new Int32Rect(0, 0, inputBitmap.PixelWidth, inputBitmap.PixelHeight), pixels2, stride, 0);
             return modifiedBitmap;
         }
 
@@ -477,7 +483,7 @@ namespace ComputerGraphicsProject1
         {
             int[][] blurFilter = new int[3][];
             blurFilter = createBlurFilter(blurFilter);
-             photoImage.Source = convolutionFunction(blurFilter,9);
+             photoImage.Source = convolutionFunction(bitmap,blurFilter,9);
         }
 
         private void LowPassFilterButton_Click(object sender, RoutedEventArgs e)
@@ -489,7 +495,7 @@ namespace ComputerGraphicsProject1
                 return;
             }
             var lowPassFilter = CreateLowPassFilter(lowPassCoefficient);
-            photoImage.Source = convolutionFunction(lowPassFilter, 8);
+            photoImage.Source = convolutionFunction(bitmap,lowPassFilter, 8);
         }
 
         private void gaussianSmothingButton_Click(object sender, RoutedEventArgs e)
@@ -501,7 +507,7 @@ namespace ComputerGraphicsProject1
                 return;
             }
             var gaussianSmothingFilter = CreateGaussianSmothingFilter(gaussianCoefficient);       
-            photoImage.Source = convolutionFunction(gaussianSmothingFilter, 8);
+            photoImage.Source = convolutionFunction(bitmap, gaussianSmothingFilter);
         }
 
 
@@ -509,7 +515,7 @@ namespace ComputerGraphicsProject1
         private void LaplacianSharpeningButton_Click(object sender, RoutedEventArgs e)
         {
             var sharpeningFilter = CreateLaplacianSharpeningFilter();
-            modifiedBitmap = convolutionFunction(sharpeningFilter, 1);
+            modifiedBitmap = convolutionFunction(bitmap, sharpeningFilter, 1);
             AddTwoBitmaps(modifiedBitmap, bitmap);
             photoImage.Source = modifiedBitmap;
         }
@@ -517,7 +523,7 @@ namespace ComputerGraphicsProject1
         private void EdgeDetectionRobertButton_Click(object sender, RoutedEventArgs e)
         {
             var robertsCrossFilter = CreateRobertsCrossFilter();
-            photoImage.Source = convolutionFunction(robertsCrossFilter,0,60);
+            photoImage.Source = convolutionFunction(bitmap, robertsCrossFilter,0,60);
 
         }
 
@@ -526,7 +532,7 @@ namespace ComputerGraphicsProject1
             int[][] embossSouthFilter = new int[3][];
             embossSouthFilter = createEmbosSouthFilter(embossSouthFilter);
           
-            photoImage.Source = convolutionFunction(embossSouthFilter);
+            photoImage.Source = convolutionFunction(bitmap, embossSouthFilter);
         }
 
         private void edgeDetectionHorizonatlButton_Click(object sender, RoutedEventArgs e)
@@ -535,7 +541,7 @@ namespace ComputerGraphicsProject1
 
             edgeDetectionHorizontalFilter = createedgeDetectionHorizontalFilter(edgeDetectionHorizontalFilter);
 
-            photoImage.Source = convolutionFunction(edgeDetectionHorizontalFilter, 1, 127);
+            photoImage.Source = convolutionFunction(bitmap, edgeDetectionHorizontalFilter, 1, 127);
         }
         public static int[][] createBlurFilter(int[][] blurFilter)
         {
@@ -611,6 +617,14 @@ namespace ComputerGraphicsProject1
             robertsCrossFilter[1][0] = 0;
             robertsCrossFilter[1][1] = -1;
             return robertsCrossFilter;
+        }
+
+        public static int[,] CreateGaussianBlurFilter()
+        {
+            var gausFilter = new int[5,5];
+            gausFilter[0, 0] = 2;
+            
+            return gausFilter;
         }
 
 
@@ -741,7 +755,8 @@ namespace ComputerGraphicsProject1
             modifiedBitmap.WritePixels(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight), pixels, stride, 0);
             photoImage.Source = modifiedBitmap;
         }
-        #endregion 
+        #endregion
+        #region second project
         /*
          * 
          * 
@@ -1158,15 +1173,97 @@ namespace ComputerGraphicsProject1
         }
         return dec;
     }
+        #endregion
 
+        private void IrisDetectionButton_Click(object sender, RoutedEventArgs e)
+        {
+            var eyeBitmap = new WriteableBitmap(bitmap);
+            int stride = eyeBitmap.PixelWidth * 4;
+            int size = eyeBitmap.PixelHeight * stride;
+            byte[] pixels = new byte[size];
 
+            var gaussianSmothingFilter = CreateGaussianSmothingFilter(2);
+            eyeBitmap = convolutionFunction(eyeBitmap, gaussianSmothingFilter);
+            ToGrayScale(eyeBitmap);
+            var robertsCrossFilter = CreateRobertsCrossFilter();
+            eyeBitmap = convolutionFunction(eyeBitmap, robertsCrossFilter, 0, 60);
+            int threshold = 0;
+            int.TryParse(gaussianCoefficientTextBox.Text, out threshold);
+            eyeBitmap = ComputeThresholdImage(eyeBitmap, threshold);
+            var config = CalculateOriginAndRadius(eyeBitmap);
+            eyeBitmap = DrawCircle(bitmap, config);
+            photoImage.Source = eyeBitmap;
 
+           /* modifiedBitmap.WritePixels(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight), pixels, stride, 0);
+            photoImage.Source = modifiedBitmap;*/
+        }
 
+        private int[] CalculateOriginAndRadius(WriteableBitmap inputBitmap)
+        {
+            var height = inputBitmap.PixelHeight;
+            //height = height % 2 == 1 ? height - 1 : height;
+            var width = inputBitmap.PixelWidth;
+            //width = width % 2 == 1 ? width - 1 : width;
+            var coord = new Coord(height, width);
+            byte[] pixels = new byte[coord.Size];
+            inputBitmap.CopyPixels(pixels, coord.Stride, 0);
 
+            var scoreTab = new int[width, height, 101];
 
+            var bestConfig = new int[3];
+            double maxVal = 0; 
+            for(int x = 125; x<375; x+=2)
+            {
+                for(int y = 103; y< 174; y+=2 )
+                {
+                    for (int r = 30; r < 100; r += 2)
+                    {
+                        int prevA = -1;
+                        int prevB = -1;
+                        for (int t = 0; t < 360; t += 1)
+                        {
+                            var a = x - r * Math.Cos((double)t * Math.PI / 180);
+                            var b = y - r * Math.Sin((double)t * Math.PI / 180);
+                            if (pixels[coord.Get((int)a, (int)b)] == 0 && (prevA != (int)a || prevB != (int)b))
+                            {
+                                prevA = (int)a;
+                                prevB = (int)b;
+                                scoreTab[x, y, r]++;
+                                if (scoreTab[x, y, r] > maxVal)  /// (2 * Math.PI * (double)r)
+                                {
+                                    bestConfig = new int[] { x, y, r };
+                                    maxVal = scoreTab[x, y, r];/// / (2*Math.PI*(double)r);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return bestConfig;
+        }
 
+        private WriteableBitmap DrawCircle(WriteableBitmap inputBitmap, int[] config)
+        {
+            var x = config[0];
+            var y = config[1];
+            var r = config[2];
+            var height = inputBitmap.PixelHeight;
+            var width = inputBitmap.PixelWidth;
+            var coord = new Coord(height, width);
+            byte[] pixels = new byte[coord.Size];
+            inputBitmap.CopyPixels(pixels, coord.Stride, 0);
+            for (int t = 0; t < 360; t += 1)
+            {
+                var a = x - r * Math.Cos((double)t * Math.PI / 180);
+                var b = y - r * Math.Sin((double)t * Math.PI / 180);
+                pixels[coord.Get((int)a, (int)b)] = 255;
+                pixels[coord.Get((int)a, (int)b)+1] = 0;
+                pixels[coord.Get((int)a, (int)b)+2] = 0;
+            }
+            inputBitmap.WritePixels(new Int32Rect(0, 0, width, height), pixels, coord.Stride, 0);
+            return inputBitmap;
+        }
         /********************GUI ********************************/
-
         private void MenuItem_Click(object sender, RoutedEventArgs e)
         {
             LoadFile();

@@ -23,26 +23,26 @@
                 <ColumnDefinition Width="4*"/>
                 <ColumnDefinition Width="300"/>
             </Grid.ColumnDefinitions>
-           
+
             <Image Name="photoImage" Grid.Column="0"></Image>
             <Label Name="beginningLabel" Background="Aqua" Opacity="0.6" FontSize="25" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" MouseEnter="Label_MouseEnter" MouseLeave="Label_MouseLeave" MouseDown="Label_MouseDown">
-                Click here to add file 
+                Click here to add file
             </Label>
             <StackPanel Grid.Column="1" Background="White">
                 <StackPanel Name="projectOnePanel" Visibility="Visible">
                     <Label FontWeight="Bold" FontSize="12" >>Gray scale</Label>
                     <Button Name="grayScaleButton" IsEnabled="False" Click="GrayScaleButton_Click">GrayScale</Button>
-                <Label>Negation</Label>
-                <Button Name="negationButton" IsEnabled="False" Click="negationButton_Click">Click</Button>
-                <Label>Brightness</Label>
+                    <Label>Negation</Label>
+                    <Button Name="negationButton" IsEnabled="False" Click="negationButton_Click">Click</Button>
+                    <Label>Brightness</Label>
                     <Slider Name="brightnessSlider"  IsEnabled="False" Thumb.DragCompleted="brightnessSlider_DragCompleted" Minimum="-60" Maximum="60"></Slider>
-                <Label>Contrast</Label>
+                    <Label>Contrast</Label>
                     <Slider Name="contrastSlider" IsEnabled="False" Thumb.DragCompleted="contrastSlider_DragCompleted"  Minimum="-40" Maximum="40"></Slider>
-                <Label>Gamma</Label>
+                    <Label>Gamma</Label>
                     <Slider Name="gammaSlider" IsEnabled="False" Thumb.DragCompleted="gammaSlider_DragCompleted"  Minimum="0" Maximum="20"></Slider>
                     <Label>Thresholding</Label>
                     <Slider Name="thresholdSlider" IsEnabled="False" Thumb.DragCompleted ="ThresholdSlider_DragCompleted" Minimum="0" Maximum="255"></Slider>
-                <Label Content="Blur"/>
+                    <Label Content="Blur"/>
                     <Button Name="blurButton" IsEnabled="False" Click="blurButton_Click">Blur</Button>
                     <Label FontWeight="Bold" FontSize="12">Low pass filter</Label>
                     <StackPanel Orientation="Horizontal">
@@ -50,19 +50,19 @@
                         <TextBox Name="lowPassFilterCoefficientTextBox" Width="180" HorizontalContentAlignment="Center">1</TextBox>
                     </StackPanel>
                     <Button IsEnabled="False" Name="lowPassFilterButton" Click="LowPassFilterButton_Click">LowPass Filter</Button>
-                <Label FontWeight="Bold" FontSize="12">Gaussian smothing</Label>
+                    <Label FontWeight="Bold" FontSize="12">Gaussian smothing</Label>
                     <StackPanel Orientation="Horizontal">
                         <Label>Gaussian coefficient</Label>
                         <TextBox Name="gaussianCoefficientTextBox" Width="180" HorizontalContentAlignment="Center">1</TextBox>
                     </StackPanel>
                     <Button IsEnabled="False" Name="gaussianSmothingButton" Click="gaussianSmothingButton_Click">Gaussian smothing</Button>
-                <Label>Laplacian Sharpening</Label>
+                    <Label>Laplacian Sharpening</Label>
                     <Button IsEnabled="False" Name="laplacianSharpeningButton" Click="LaplacianSharpeningButton_Click">Sharpening</Button>
                     <Label  FontWeight="Bold" FontSize="12" >Edge detection (Roberts cross)</Label>
                     <Button IsEnabled="False" Name="edgeDetectionButton" Click="EdgeDetectionRobertButton_Click">Edge detection</Button>
-                <Label>Emboss south</Label>
+                    <Label>Emboss south</Label>
                     <Button IsEnabled="False" Name="embossSouthButton" Click="embossSouthButton_Click">Emboss south</Button>
-                <Label>Edge detection horizontal</Label>
+                    <Label>Edge detection horizontal</Label>
                     <Button IsEnabled="False" Name="edgeDetectionHorizonatlButton" Click="edgeDetectionHorizonatlButton_Click">Edge detection horizontal</Button>
                 </StackPanel>
                 <Separator BorderBrush="Black" BorderThickness="4"></Separator>
@@ -76,9 +76,11 @@
                     </ComboBox>
                     <Label>Octree Color Quantization (8-255)</Label>
                     <Slider Name="octreeColorQuantizationSlider" Thumb.DragCompleted="octreeColorQuantization_DragCompleted"  Minimum="8" Maximum="255" Value="255"></Slider>
+
                 </StackPanel>
+                <Label>Iris detection</Label>
+                <Button IsEnabled="False" Name="IrisDetectionButton" Click="IrisDetectionButton_Click">Detect Iris</Button>
             </StackPanel>
         </Grid>
-        
     </Grid>
 </Page>
