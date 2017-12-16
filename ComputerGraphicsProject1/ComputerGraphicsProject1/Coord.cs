@@ -8,14 +8,21 @@ namespace ComputerGraphicsProject1
 {
     public class Coord
     {
-        private int Height { get; set; }
-        private int Width { get; set; }
-        public int Stride { get; set; }
-        public int Size { get; set; }
+        public int Height { get; private set; }
+        public int Width { get; private set; }
+        public int Stride { get; private set; }
+        public int Size { get; private set; }
         public Coord(int height, int width)
         {
             this.Height = height;
             this.Width = width;
+            this.Stride = this.Width * 4;
+            this.Size = this.Height * this.Stride;
+        }
+        public Coord(Coord coord)
+        {
+            this.Height = coord.Height;
+            this.Width = coord.Width;
             this.Stride = this.Width * 4;
             this.Size = this.Height * this.Stride;
         }

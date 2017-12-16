@@ -269,7 +269,7 @@ namespace ComputerGraphicsProject1
                     byte alpha = pixels[index + 3];
                 }
             }
-            inputBitmap.WritePixels(new Int32Rect(0, 0, grayScaleBitmap.PixelWidth, grayScaleBitmap.PixelHeight), pixels, stride, 0);
+            inputBitmap.WritePixels(new Int32Rect(0, 0, inputBitmap.PixelWidth, inputBitmap.PixelHeight), pixels, stride, 0);
             return inputBitmap;
         }
 
@@ -475,8 +475,8 @@ namespace ComputerGraphicsProject1
                     //pixels[index] = Convert.ToByte(tmp);
                 }
             }
-            modifiedBitmap.WritePixels(new Int32Rect(0, 0, inputBitmap.PixelWidth, inputBitmap.PixelHeight), pixels2, stride, 0);
-            return modifiedBitmap;
+            inputBitmap.WritePixels(new Int32Rect(0, 0, inputBitmap.PixelWidth, inputBitmap.PixelHeight), pixels2, stride, 0);
+            return inputBitmap;
         }
 
         private void blurButton_Click(object sender, RoutedEventArgs e)
@@ -1190,8 +1190,10 @@ namespace ComputerGraphicsProject1
             int threshold = 0;
             int.TryParse(gaussianCoefficientTextBox.Text, out threshold);
             eyeBitmap = ComputeThresholdImage(eyeBitmap, threshold);
+            eyeBitmap = HelperFunctions.resize_image(eyeBitmap, 0.6);
+            eyeBitmap = ComputeThresholdImage(eyeBitmap, 80);
             var config = CalculateOriginAndRadius(eyeBitmap);
-            eyeBitmap = DrawCircle(bitmap, config);
+            eyeBitmap = DrawCircle(eyeBitmap, config);
             photoImage.Source = eyeBitmap;
 
            /* modifiedBitmap.WritePixels(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight), pixels, stride, 0);
@@ -1208,27 +1210,27 @@ namespace ComputerGraphicsProject1
             byte[] pixels = new byte[coord.Size];
             inputBitmap.CopyPixels(pixels, coord.Stride, 0);
 
-            var scoreTab = new int[width, height, 101];
+            var scoreTab = new double[width, height, width / 2];
 
             var bestConfig = new int[3];
             double maxVal = 0; 
-            for(int x = 125; x<375; x+=2)
+            for(int x = width/10; x<width-width/10; x+=3)
             {
-                for(int y = 103; y< 174; y+=2 )
+                for(int y = height/10; y< height- height / 10; y+=3)
                 {
-                    for (int r = 30; r < 100; r += 2)
+                    for (int r = width/10; r < width/2; r += 2)
                     {
                         int prevA = -1;
                         int prevB = -1;
-                        for (int t = 0; t < 360; t += 1)
+                        for (double t = 0; t < 360; t += 0.5)
                         {
                             var a = x - r * Math.Cos((double)t * Math.PI / 180);
                             var b = y - r * Math.Sin((double)t * Math.PI / 180);
-                            if (pixels[coord.Get((int)a, (int)b)] == 0 && (prevA != (int)a || prevB != (int)b))
+                            if (a>0 && a< width && b>0 && b< height && pixels[coord.Get((int)a, (int)b)] == 0 && (prevA != (int)a || prevB != (int)b))
                             {
                                 prevA = (int)a;
                                 prevB = (int)b;
-                                scoreTab[x, y, r]++;
+                                scoreTab[x, y, r] = (scoreTab[x, y, r]*r+1)/(double)r;
                                 if (scoreTab[x, y, r] > maxVal)  /// (2 * Math.PI * (double)r)
                                 {
                                     bestConfig = new int[] { x, y, r };
@@ -1256,9 +1258,12 @@ namespace ComputerGraphicsProject1
             {
                 var a = x - r * Math.Cos((double)t * Math.PI / 180);
                 var b = y - r * Math.Sin((double)t * Math.PI / 180);
-                pixels[coord.Get((int)a, (int)b)] = 255;
-                pixels[coord.Get((int)a, (int)b)+1] = 0;
-                pixels[coord.Get((int)a, (int)b)+2] = 0;
+                if (a > 0 && a < width && b > 0 && b < height)
+                {
+                    pixels[coord.Get((int)a, (int)b)] = 255;
+                    pixels[coord.Get((int)a, (int)b) + 1] = 0;
+                    pixels[coord.Get((int)a, (int)b) + 2] = 0;
+                }
             }
             inputBitmap.WritePixels(new Int32Rect(0, 0, width, height), pixels, coord.Stride, 0);
             return inputBitmap;
