@@ -238,6 +238,7 @@ namespace ComputerGraphicsProject1
         private void ThresholdSlider_DragCompleted(object sender, RoutedEventArgs e)
         {
             int sliderValue = (int)thresholdSlider.Value;
+            Console.WriteLine(sliderValue);
             modifiedBitmap = new WriteableBitmap(grayScaleBitmap);
             photoImage.Source = ComputeThresholdImage(modifiedBitmap, sliderValue);
         }
@@ -1180,6 +1181,7 @@ namespace ComputerGraphicsProject1
 
         private async void IrisDetectionButton_Click(object sender, RoutedEventArgs e)
         {
+            var scale = 0.6;
             var eyeBitmap = new WriteableBitmap(bitmap);
             int stride = eyeBitmap.PixelWidth * 4;
             int size = eyeBitmap.PixelHeight * stride;
@@ -1188,20 +1190,21 @@ namespace ComputerGraphicsProject1
             var gaussianSmothingFilter = CreateGaussianSmothingFilter(2);
             eyeBitmap = convolutionFunction(eyeBitmap, gaussianSmothingFilter);
             ToGrayScale(eyeBitmap);
-
+            var irisXCoord = (int)((double)CalculateIrisXCoord(eyeBitmap)*scale);
+            var irisYCoord = (int)((double)CalculateIrisYCoord(eyeBitmap) * scale);
             var robertsCrossFilter = CreateRobertsCrossFilter();
             eyeBitmap = convolutionFunction(eyeBitmap, robertsCrossFilter, 0, 60);
             int threshold = CalculateThreshold(eyeBitmap);
             eyeBitmap = ComputeThresholdImage(eyeBitmap, threshold);
-            eyeBitmap = HelperFunctions.resize_image(eyeBitmap, 0.6);
+            eyeBitmap = HelperFunctions.resize_image(eyeBitmap, scale);
             eyeBitmap = ComputeThresholdImage(eyeBitmap, 80);
             var stopwatch = Stopwatch.StartNew();
-            var configList =  await CalculateOriginAndRadius(eyeBitmap);
+            var configList =  await CalculateOriginAndRadius(eyeBitmap,irisXCoord,irisYCoord);
             stopwatch.Stop();
             Console.WriteLine(stopwatch.ElapsedMilliseconds);
             foreach (var config in configList)
             {
-                eyeBitmap = DrawCircle(eyeBitmap, config);
+                eyeBitmap = DrawCircle(eyeBitmap,new int[] { (int)config[0], (int)config[1], (int)config[2] });
             }
             photoImage.Source = eyeBitmap;
 
@@ -1209,9 +1212,71 @@ namespace ComputerGraphicsProject1
              photoImage.Source = modifiedBitmap;*/
         }
 
-        private int CalculateIrisXCoord()
+        private int CalculateIrisYCoord(WriteableBitmap input)
         {
+            var bucketWidth = 10;
+            var height = input.PixelHeight;
+            var width = input.PixelWidth;
+            var coord = new Coord(height, width);
+            var pixels = new byte[coord.Size];
+            input.CopyPixels(pixels, coord.Stride, 0);
+            var buckets = new int[(height-60) / bucketWidth];
+            for (int i = 30, bucketCounter = 0; i < height - 40; i += 10, bucketCounter++)
+            {
+                buckets[bucketCounter] = 0;
+                for (int j = i; j < i + bucketWidth; j++)
+                {
+                    for (int x = 0; x < width; x++)
+                    {
+                        if(pixels[coord.Get(x, j)] < 24)
+                        buckets[bucketCounter] ++;
+                    }
+                }
+            }
+            var maxValue = 0 ;
+            var maxIndex = -1;
+            for (int a = 0; a < buckets.Count(); a++)
+            {
+                if (buckets[a] >maxValue)
+                {
+                    maxValue = buckets[a];
+                    maxIndex = a;
+                }
+            }
+            return 30 + maxIndex * bucketWidth;
+        }
 
+        private int CalculateIrisXCoord(WriteableBitmap input)
+        {
+            var bucketWidth = 10;
+            var height = input.PixelHeight;
+            var width = input.PixelWidth;
+            var coord = new Coord(height, width);
+            var pixels = new byte[coord.Size];
+            input.CopyPixels(pixels, coord.Stride, 0);
+            var buckets = new int[width / bucketWidth];
+            for (int i = 0, bucketCounter = 0; i < width- bucketWidth; i += 10, bucketCounter++)
+            {
+                buckets[bucketCounter] = 0;
+                for (int j = i; j < i + bucketWidth; j++)
+                {
+                    for (int y = 0; y < height; y++)
+                    {
+                        buckets[bucketCounter] += pixels[coord.Get(j, y)];
+                    }
+                }
+            }
+            var minValue = 10000000;
+            var minIndex = -1;
+            for (int a = 0; a < buckets.Count(); a++)
+            {
+                if (buckets[a]!=0 && buckets[a] < minValue)
+                {
+                    minValue = buckets[a];
+                    minIndex = a;
+                }
+            }
+            return 30+ minIndex * bucketWidth;
         }
 
         private int CalculateThreshold(WriteableBitmap input)
@@ -1233,7 +1298,7 @@ namespace ComputerGraphicsProject1
             return (int)threshold;
         }
 
-        private async Task<ConcurrentBag<int[]>> CalculateOriginAndRadius(WriteableBitmap inputBitmap)
+        private async Task<ConcurrentBag<double[]>> CalculateOriginAndRadius(WriteableBitmap inputBitmap, int xCenter, int yCenter)
         {
             var height = inputBitmap.PixelHeight;
             //height = height % 2 == 1 ? height - 1 : height;
@@ -1242,30 +1307,30 @@ namespace ComputerGraphicsProject1
             var coord = new Coord(height, width);
             var pixels = new byte[coord.Size];
             inputBitmap.CopyPixels(pixels, coord.Stride, 0);
-            int widthPerCore = (width - 2 * (width / 10)) / 13;
-            var scoresList = new ConcurrentBag<int[]>();
+            int widthPerCore = 50 / 13;
+            var scoresList = new ConcurrentBag<double[]>();
             var tasks = new List<Task>();
-            for (int i = width / 10; i < width - (width / 10); i += widthPerCore)
+            for (int i = xCenter-25; i < xCenter+25; i += widthPerCore)
             {
                 //await TestFunc();
-                tasks.Add(CalculateScoreAsync(scoresList, pixels, new Coord(coord), i, i + widthPerCore));
+                tasks.Add(CalculateScoreAsync(scoresList, pixels, new Coord(coord), i, i + widthPerCore,yCenter));
               // await CalculateScoreAsync(scoresList, pixels, new Coord(coord), i, i + widthPerCore);
             }
             await Task.WhenAll(tasks.ToArray());
             return scoresList;
         }
 
-        private async Task CalculateScoreAsync(ConcurrentBag<int[]> scoreList, byte[] pixels, Coord coord, int startW, int endW)
+        private async Task CalculateScoreAsync(ConcurrentBag<double[]> scoreList, byte[] pixels, Coord coord, int startW, int endW, int yCenter)
         {
             await Task.Run(() =>
             {
                 Console.WriteLine("test");
                 var scoreTab = new double[coord.Width, coord.Height, coord.Width / 2];
-                var bestConfig = new int[3];
+                var bestConfig = new double[4];
                 double maxVal = 0;
                 for (int x = startW; x < endW; x += 3)
                 {
-                    for (int y = coord.Height / 10; y < coord.Height - coord.Height / 10; y += 3)
+                    for (int y = yCenter - 25; y < yCenter + 25; y += 3)
                     {
                         for (int r = coord.Width / 10; r < coord.Width / 2; r += 2)
                         {
@@ -1282,7 +1347,7 @@ namespace ComputerGraphicsProject1
                                     scoreTab[x, y, r] = (scoreTab[x, y, r] * r + 1) / (double)r;
                                     if (scoreTab[x, y, r] > maxVal)  /// (2 * Math.PI * (double)r)
                                     {
-                                        bestConfig = new int[] { x, y, r };
+                                        bestConfig = new double[] { x, y, r, scoreTab[x, y, r] };
                                         maxVal = scoreTab[x, y, r];/// / (2*Math.PI*(double)r);
                                     }
                                 }
@@ -1291,7 +1356,7 @@ namespace ComputerGraphicsProject1
                     }
                 }
                 scoreList.Add(bestConfig);
-           });
+            });
             return;
         }
 
