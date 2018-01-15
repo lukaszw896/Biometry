@@ -1188,10 +1188,10 @@ namespace ComputerGraphicsProject1
             var gaussianSmothingFilter = CreateGaussianSmothingFilter(2);
             eyeBitmap = convolutionFunction(eyeBitmap, gaussianSmothingFilter);
             ToGrayScale(eyeBitmap);
+
             var robertsCrossFilter = CreateRobertsCrossFilter();
             eyeBitmap = convolutionFunction(eyeBitmap, robertsCrossFilter, 0, 60);
-            int threshold = 0;
-            int.TryParse(gaussianCoefficientTextBox.Text, out threshold);
+            int threshold = CalculateThreshold(eyeBitmap);
             eyeBitmap = ComputeThresholdImage(eyeBitmap, threshold);
             eyeBitmap = HelperFunctions.resize_image(eyeBitmap, 0.6);
             eyeBitmap = ComputeThresholdImage(eyeBitmap, 80);
@@ -1207,6 +1207,30 @@ namespace ComputerGraphicsProject1
 
            /* modifiedBitmap.WritePixels(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight), pixels, stride, 0);
              photoImage.Source = modifiedBitmap;*/
+        }
+
+        private int CalculateIrisXCoord()
+        {
+
+        }
+
+        private int CalculateThreshold(WriteableBitmap input)
+        {
+            var height = input.PixelHeight;
+            var width = input.PixelWidth;
+            var coord = new Coord(height, width);
+            var pixels = new byte[coord.Size];
+            input.CopyPixels(pixels, coord.Stride, 0);
+            var sum = 0;
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    sum += pixels[coord.Get(x, y)];
+                }
+            }
+            var threshold = (double)sum / (double)(width * height);
+            return (int)threshold;
         }
 
         private async Task<ConcurrentBag<int[]>> CalculateOriginAndRadius(WriteableBitmap inputBitmap)
