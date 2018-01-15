@@ -1190,96 +1190,263 @@ namespace ComputerGraphicsProject1
             var gaussianSmothingFilter = CreateGaussianSmothingFilter(2);
             eyeBitmap = convolutionFunction(eyeBitmap, gaussianSmothingFilter);
             ToGrayScale(eyeBitmap);
+            eyeBitmap = ErodeGrayscaleImage(eyeBitmap);
             var irisXCoord = (int)((double)CalculateIrisXCoord(eyeBitmap)*scale);
-            var irisYCoord = (int)((double)CalculateIrisYCoord(eyeBitmap) * scale);
-            var robertsCrossFilter = CreateRobertsCrossFilter();
-            eyeBitmap = convolutionFunction(eyeBitmap, robertsCrossFilter, 0, 60);
-            int threshold = CalculateThreshold(eyeBitmap);
-            eyeBitmap = ComputeThresholdImage(eyeBitmap, threshold);
-            eyeBitmap = HelperFunctions.resize_image(eyeBitmap, scale);
-            eyeBitmap = ComputeThresholdImage(eyeBitmap, 80);
-            var stopwatch = Stopwatch.StartNew();
-            var configList =  await CalculateOriginAndRadius(eyeBitmap,irisXCoord,irisYCoord);
-            stopwatch.Stop();
-            Console.WriteLine(stopwatch.ElapsedMilliseconds);
-            foreach (var config in configList)
-            {
-                eyeBitmap = DrawCircle(eyeBitmap,new int[] { (int)config[0], (int)config[1], (int)config[2] });
-            }
+            var irisYCoord = (int)((double)CalculateIrisYCoord(eyeBitmap)*scale);
+            //var robertsCrossFilter = CreateRobertsCrossFilter();
+            //eyeBitmap = convolutionFunction(eyeBitmap, robertsCrossFilter, 0, 60);
+            /* var offset = -55;
+             int threshold = CalculateThreshold(eyeBitmap,offset);*/
+
+             eyeBitmap = ComputeThresholdImage(eyeBitmap, 15);
+             /*eyeBitmap = ErodeImage(eyeBitmap);
+             eyeBitmap = ErodeImage(eyeBitmap);
+             //eyeBitmap = ErodeImage(eyeBitmap);*/
+             eyeBitmap = HelperFunctions.resize_image(eyeBitmap, scale);
+            eyeBitmap = DrawPoint(eyeBitmap, irisXCoord, irisYCoord);
+             eyeBitmap = ComputeThresholdImage(eyeBitmap, 80);
+            /* var stopwatch = Stopwatch.StartNew();
+             var configList =  await CalculateOriginAndRadius(eyeBitmap,irisXCoord,irisYCoord);
+             stopwatch.Stop();
+             Console.WriteLine(stopwatch.ElapsedMilliseconds);
+             foreach (var config in configList)
+             {
+                 eyeBitmap = DrawCircle(eyeBitmap,new int[] { (int)config[0], (int)config[1], (int)config[2] });
+             }*/
             photoImage.Source = eyeBitmap;
 
            /* modifiedBitmap.WritePixels(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight), pixels, stride, 0);
              photoImage.Source = modifiedBitmap;*/
         }
 
-        private int CalculateIrisYCoord(WriteableBitmap input)
+        private WriteableBitmap DrawPoint(WriteableBitmap input, int xCoord, int yCoord)
         {
-            var bucketWidth = 10;
             var height = input.PixelHeight;
             var width = input.PixelWidth;
             var coord = new Coord(height, width);
             var pixels = new byte[coord.Size];
             input.CopyPixels(pixels, coord.Stride, 0);
-            var buckets = new int[(height-60) / bucketWidth];
-            for (int i = 30, bucketCounter = 0; i < height - 40; i += 10, bucketCounter++)
+
+            for(int i=-3;i<=3;i++)
+            {
+                for(int j=-3;j<=3;j++)
+                {
+                    var index = coord.Get(xCoord + i, yCoord + j);
+                    pixels[index] = 255;
+                    pixels[index+1] = 0;
+                    pixels[index+2] = 0;
+                }
+            }
+
+            WriteableBitmap tmpBitmap = new WriteableBitmap(input);
+            tmpBitmap.WritePixels(new Int32Rect(0, 0, width, height), pixels, coord.Stride, 0);
+            return tmpBitmap;
+        }
+
+        private WriteableBitmap ErodeGrayscaleImage(WriteableBitmap input)
+        {
+            int blackLevel = 10;
+            byte difference = 40;
+            var height = input.PixelHeight;
+            var width = input.PixelWidth;
+            var coord = new Coord(height, width);
+            var pixels = new byte[coord.Size];
+            var newPixels = new byte[coord.Size];
+            input.CopyPixels(pixels, coord.Stride, 0);
+            pixels.CopyTo(newPixels, 0);
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    if (x + 1 > width || x - 1 < 0 || y + 1 > height || y - 1 < 0)
+                    {
+                        var index = coord.Get(x, y);
+                        if (newPixels[index] + difference < 255)
+                        {
+                            newPixels[index] += difference;
+                            newPixels[index + 1] += difference;
+                            newPixels[index + 2] += difference;
+                        }
+                        else
+                        {
+                            newPixels[index] = 255;
+                            newPixels[index + 1] = 255;
+                            newPixels[index + 2] = 255;
+                        }
+                    }
+                    else if (pixels[coord.Get(x, y)] < blackLevel && pixels[coord.Get(x, y - 1)] < blackLevel && pixels[coord.Get(x, y + 1)] < blackLevel && pixels[coord.Get(x + 1, y)] < blackLevel && pixels[coord.Get(x - 1, y)] < blackLevel)
+                    {
+                        var index = coord.Get(x, y);
+                        if (newPixels[index] - difference > 0)
+                        {
+                            newPixels[index] -= difference;
+                            newPixels[index + 1] -= difference;
+                            newPixels[index + 2] -= difference;
+                        }
+                        else 
+                        {
+                            newPixels[index] = 0;
+                            newPixels[index + 1] = 0;
+                            newPixels[index + 2] = 0;
+                        }
+                    }
+                    else
+                    {
+                        var index = coord.Get(x, y);
+                        if (newPixels[index] + difference < 255)
+                        {
+                            newPixels[index] += difference;
+                            newPixels[index + 1] += difference;
+                            newPixels[index + 2] += difference;
+                        }
+                        else
+                        {
+                            newPixels[index] = 255;
+                            newPixels[index + 1] = 255;
+                            newPixels[index + 2] = 255;
+                        }
+                    }
+                }
+            }
+            WriteableBitmap tmpBitmap = new WriteableBitmap(input);
+            tmpBitmap.WritePixels(new Int32Rect(0, 0, width, height), newPixels, coord.Stride, 0);
+            return tmpBitmap;
+        }
+        private WriteableBitmap ErodeImage(WriteableBitmap input)
+        {
+            var height = input.PixelHeight;
+            var width = input.PixelWidth;
+            var coord = new Coord(height, width);
+            var pixels = new byte[coord.Size];
+            var newPixels = new byte[coord.Size];
+            input.CopyPixels(pixels, coord.Stride, 0);
+            for(int x =0; x< width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    if (x + 1 > width || x - 1 < 0 || y + 1 > height || y - 1 < 0)
+                    {
+                        var index = coord.Get(x, y);
+                        newPixels[index] = 255;
+                        newPixels[index + 1] = 255;
+                        newPixels[index + 2] = 255;
+                    }
+                    else if (!(pixels[coord.Get(x, y)] == 0 && pixels[coord.Get(x, y - 1)] == 0 && pixels[coord.Get(x, y + 1)] == 0 && pixels[coord.Get(x + 1, y)] == 0 && pixels[coord.Get(x - 1, y)] == 0))
+                    {
+                        var index = coord.Get(x, y);
+                        newPixels[index] = 255;
+                        newPixels[index + 1] = 255;
+                        newPixels[index + 2] = 255;
+                    }
+                }
+            }
+            WriteableBitmap tmpBitmap = new WriteableBitmap(input);
+            tmpBitmap.WritePixels(new Int32Rect(0, 0, width, height), newPixels, coord.Stride, 0);
+            return tmpBitmap;
+        }
+
+        private int CalculateIrisYCoord(WriteableBitmap input)
+        {
+            var bucketWidth = 5;
+            var height = input.PixelHeight;
+            var width = input.PixelWidth;
+            var coord = new Coord(height, width);
+            var pixels = new byte[coord.Size];
+            input.CopyPixels(pixels, coord.Stride, 0);
+            var buckets = new int[height / bucketWidth];
+            for (int i = 0, bucketCounter = 0; i < height - bucketWidth; i += bucketWidth, bucketCounter++)
             {
                 buckets[bucketCounter] = 0;
                 for (int j = i; j < i + bucketWidth; j++)
                 {
                     for (int x = 0; x < width; x++)
                     {
-                        if(pixels[coord.Get(x, j)] < 24)
+                        if(pixels[coord.Get(x, j)] < 10)
                         buckets[bucketCounter] ++;
                     }
                 }
             }
-            var maxValue = 0 ;
-            var maxIndex = -1;
+            int totalAverage = 0;
+            int totalNonEmptyBuckets = 0;
             for (int a = 0; a < buckets.Count(); a++)
             {
-                if (buckets[a] >maxValue)
+                if (buckets[a] > 0)
                 {
-                    maxValue = buckets[a];
+                    totalAverage += buckets[a];
+                    totalNonEmptyBuckets++;
+                }
+            }
+            totalAverage /= (totalNonEmptyBuckets * 3);
+            int minIndex = 0;
+            int maxIndex = 0;
+            for (int a = 0; a < buckets.Count(); a++)
+            {
+                if (buckets[a] > totalAverage)
+                {
+                    if (minIndex == 0)
+                    {
+                        minIndex = a;
+                    }
                     maxIndex = a;
                 }
             }
-            return 30 + maxIndex * bucketWidth;
+            var averageIndex = ((double)(minIndex + maxIndex) / 2.0);
+            return (int)(averageIndex * bucketWidth);
         }
 
         private int CalculateIrisXCoord(WriteableBitmap input)
         {
-            var bucketWidth = 10;
+            var bucketWidth = 5;
             var height = input.PixelHeight;
             var width = input.PixelWidth;
             var coord = new Coord(height, width);
             var pixels = new byte[coord.Size];
             input.CopyPixels(pixels, coord.Stride, 0);
             var buckets = new int[width / bucketWidth];
-            for (int i = 0, bucketCounter = 0; i < width- bucketWidth; i += 10, bucketCounter++)
+            for (int i = 0, bucketCounter = 0; i < width- bucketWidth; i += bucketWidth, bucketCounter++)
             {
                 buckets[bucketCounter] = 0;
                 for (int j = i; j < i + bucketWidth; j++)
                 {
                     for (int y = 0; y < height; y++)
                     {
-                        buckets[bucketCounter] += pixels[coord.Get(j, y)];
+                        if(pixels[coord.Get(j, y)]<15)
+                        {
+                            buckets[bucketCounter]++;
+                        }
+                        
                     }
                 }
             }
-            var minValue = 10000000;
-            var minIndex = -1;
+            int totalAverage = 0;
+            int totalNonEmptyBuckets = 0;
             for (int a = 0; a < buckets.Count(); a++)
             {
-                if (buckets[a]!=0 && buckets[a] < minValue)
+                if(buckets[a]>0)
                 {
-                    minValue = buckets[a];
-                    minIndex = a;
+                    totalAverage += buckets[a];
+                    totalNonEmptyBuckets++;
                 }
             }
-            return 30+ minIndex * bucketWidth;
+            totalAverage /= (totalNonEmptyBuckets*3);
+            int minIndex = 0;
+            int maxIndex = 0;
+            for (int a = 0; a < buckets.Count(); a++)
+            {
+                if(buckets[a] > totalAverage)
+                {
+                    if (minIndex == 0)
+                    {
+                        minIndex = a;
+                    }
+                    maxIndex = a;
+                }
+            }
+            var averageIndex = ((double)(minIndex + maxIndex) / 2.0);
+            return (int)averageIndex * bucketWidth;
         }
 
-        private int CalculateThreshold(WriteableBitmap input)
+        private int CalculateThreshold(WriteableBitmap input,int offset)
         {
             var height = input.PixelHeight;
             var width = input.PixelWidth;
@@ -1295,7 +1462,7 @@ namespace ComputerGraphicsProject1
                 }
             }
             var threshold = (double)sum / (double)(width * height);
-            return (int)threshold;
+            return (int)threshold+offset;
         }
 
         private async Task<ConcurrentBag<double[]>> CalculateOriginAndRadius(WriteableBitmap inputBitmap, int xCenter, int yCenter)
@@ -1330,7 +1497,7 @@ namespace ComputerGraphicsProject1
                 double maxVal = 0;
                 for (int x = startW; x < endW; x += 3)
                 {
-                    for (int y = yCenter - 25; y < yCenter + 25; y += 3)
+                    for (int y = yCenter - 15; y < yCenter + 15; y += 3)
                     {
                         for (int r = coord.Width / 10; r < coord.Width / 2; r += 2)
                         {
@@ -1344,7 +1511,7 @@ namespace ComputerGraphicsProject1
                                 {
                                     prevA = (int)a;
                                     prevB = (int)b;
-                                    scoreTab[x, y, r] = (scoreTab[x, y, r] * r + 1) / (double)r;
+                                    scoreTab[x, y, r] = (scoreTab[x, y, r] * r + 1) / ((double)(r^2));
                                     if (scoreTab[x, y, r] > maxVal)  /// (2 * Math.PI * (double)r)
                                     {
                                         bestConfig = new double[] { x, y, r, scoreTab[x, y, r] };
