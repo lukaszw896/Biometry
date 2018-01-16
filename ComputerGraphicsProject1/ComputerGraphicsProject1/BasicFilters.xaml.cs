@@ -1181,42 +1181,75 @@ namespace ComputerGraphicsProject1
 
         private async void IrisDetectionButton_Click(object sender, RoutedEventArgs e)
         {
+            var stopwatch = Stopwatch.StartNew();
             var scale = 0.6;
             var eyeBitmap = new WriteableBitmap(bitmap);
             int stride = eyeBitmap.PixelWidth * 4;
             int size = eyeBitmap.PixelHeight * stride;
             byte[] pixels = new byte[size];
-
             var gaussianSmothingFilter = CreateGaussianSmothingFilter(2);
             eyeBitmap = convolutionFunction(eyeBitmap, gaussianSmothingFilter);
             ToGrayScale(eyeBitmap);
             eyeBitmap = ErodeGrayscaleImage(eyeBitmap);
-            var irisXCoord = (int)((double)CalculateIrisXCoord(eyeBitmap)*scale);
-            var irisYCoord = (int)((double)CalculateIrisYCoord(eyeBitmap)*scale);
+            var irisXCoord = (int)((double)CalculateIrisXCoord(eyeBitmap) * scale);
+            var irisYCoord = (int)((double)CalculateIrisYCoord(eyeBitmap) * scale);
+
+            //###########################################
+            //########### PUPIL COMPUTATIONS ############
+            //###########################################
+            WriteableBitmap pupilBitmap = new WriteableBitmap(eyeBitmap);
+            pupilBitmap = ComputeThresholdImage(pupilBitmap, 15);
+            pupilBitmap = HelperFunctions.resize_image(pupilBitmap, scale);
+            pupilBitmap = DrawPoint(pupilBitmap, irisXCoord, irisYCoord);
+            pupilBitmap = ComputeThresholdImage(pupilBitmap, 80);            
+            var configList = await CalculateOriginAndRadius(pupilBitmap, irisXCoord, irisYCoord);
+            var totalPupilAverage = 0.0;
+            foreach (var config in configList)
+            {
+                totalPupilAverage += config[3];
+            }
+            totalPupilAverage /= (configList.Count*3);
+            double[] pupilConfig = new double[3];
+            var rLenght = 0;
+            foreach(var config in configList)
+            {
+                if(config[3]>totalPupilAverage && config[2] >rLenght)
+                {
+                    pupilConfig = config;
+                    rLenght = (int)config[2];
+                }
+            }
+
+            //###########################################
+            //########## RETINA COMPUTATIONS ############
+            //###########################################
+
             //var robertsCrossFilter = CreateRobertsCrossFilter();
             //eyeBitmap = convolutionFunction(eyeBitmap, robertsCrossFilter, 0, 60);
             /* var offset = -55;
              int threshold = CalculateThreshold(eyeBitmap,offset);*/
 
-             eyeBitmap = ComputeThresholdImage(eyeBitmap, 15);
-             /*eyeBitmap = ErodeImage(eyeBitmap);
-             eyeBitmap = ErodeImage(eyeBitmap);
-             //eyeBitmap = ErodeImage(eyeBitmap);*/
-             eyeBitmap = HelperFunctions.resize_image(eyeBitmap, scale);
-            eyeBitmap = DrawPoint(eyeBitmap, irisXCoord, irisYCoord);
-             eyeBitmap = ComputeThresholdImage(eyeBitmap, 80);
-            /* var stopwatch = Stopwatch.StartNew();
-             var configList =  await CalculateOriginAndRadius(eyeBitmap,irisXCoord,irisYCoord);
-             stopwatch.Stop();
-             Console.WriteLine(stopwatch.ElapsedMilliseconds);
-             foreach (var config in configList)
-             {
-                 eyeBitmap = DrawCircle(eyeBitmap,new int[] { (int)config[0], (int)config[1], (int)config[2] });
-             }*/
-            photoImage.Source = eyeBitmap;
+            /*eyeBitmap = ErodeImage(eyeBitmap);
+            eyeBitmap = ErodeImage(eyeBitmap);
+            //eyeBitmap = ErodeImage(eyeBitmap);*/
 
-           /* modifiedBitmap.WritePixels(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight), pixels, stride, 0);
-             photoImage.Source = modifiedBitmap;*/
+            /*foreach (var config in configList)
+            {
+                eyeBitmap = DrawCircle(eyeBitmap, new int[] { (int)config[0], (int)config[1], (int)config[2] });
+            }*/
+
+            //##################################
+            //########## RESULTS ###############
+            //##################################
+            /* var result = new WriteableBitmap(bitmap);
+             result = DrawCircle(result, new int[] { (int)(pupilConfig[0] / scale), (int)(pupilConfig[1] / scale), (int)(pupilConfig[2] / scale) });
+             photoImage.Source = result;*/
+
+            photoImage.Source = eyeBitmap;
+            /* modifiedBitmap.WritePixels(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight), pixels, stride, 0);
+              photoImage.Source = modifiedBitmap;*/
+            stopwatch.Stop();
+            Console.WriteLine(stopwatch.ElapsedMilliseconds);
         }
 
         private WriteableBitmap DrawPoint(WriteableBitmap input, int xCoord, int yCoord)
@@ -1474,54 +1507,59 @@ namespace ComputerGraphicsProject1
             var coord = new Coord(height, width);
             var pixels = new byte[coord.Size];
             inputBitmap.CopyPixels(pixels, coord.Stride, 0);
-            int widthPerCore = 50 / 13;
+            int widthPerCore = (coord.Width / 2 -5) / 13;
             var scoresList = new ConcurrentBag<double[]>();
             var tasks = new List<Task>();
-            for (int i = xCenter-25; i < xCenter+25; i += widthPerCore)
+            for (int i = 5; i < coord.Width/2; i += widthPerCore)
             {
                 //await TestFunc();
-                tasks.Add(CalculateScoreAsync(scoresList, pixels, new Coord(coord), i, i + widthPerCore,yCenter));
+                tasks.Add(CalculateScoreAsync(scoresList, pixels, new Coord(coord), i, i + widthPerCore, xCenter,yCenter));
               // await CalculateScoreAsync(scoresList, pixels, new Coord(coord), i, i + widthPerCore);
             }
             await Task.WhenAll(tasks.ToArray());
             return scoresList;
         }
 
-        private async Task CalculateScoreAsync(ConcurrentBag<double[]> scoreList, byte[] pixels, Coord coord, int startW, int endW, int yCenter)
+        private async Task CalculateScoreAsync(ConcurrentBag<double[]> scoreList, byte[] pixels, Coord coord, int startR, int endR, int xCenter, int yCenter)
         {
             await Task.Run(() =>
             {
                 Console.WriteLine("test");
-                var scoreTab = new double[coord.Width, coord.Height, coord.Width / 2];
+                var scoreTab = new double[coord.Width / 2 + (endR - startR)];
                 var bestConfig = new double[4];
-                double maxVal = 0;
-                for (int x = startW; x < endW; x += 3)
+
+                for (int r = startR; r < endR; r += 2)
                 {
-                    for (int y = yCenter - 15; y < yCenter + 15; y += 3)
+                    int prevA = -1;
+                    int prevB = -1;
+                    for (int t = 0; t < 360; t += 1)
                     {
-                        for (int r = coord.Width / 10; r < coord.Width / 2; r += 2)
+                        var a = xCenter - r * Math.Cos((double)t * Math.PI / 180);
+                        var b = yCenter - r * Math.Sin((double)t * Math.PI / 180);
+                        if (a > 0 && a < coord.Width && b > 0 && b < coord.Height && pixels[coord.Get((int)a, (int)b)] == 0 && (prevA != (int)a || prevB != (int)b))
                         {
-                            int prevA = -1;
-                            int prevB = -1;
-                            for (int t = 0; t < 360; t += 1)
-                            {
-                                var a = x - r * Math.Cos((double)t * Math.PI / 180);
-                                var b = y - r * Math.Sin((double)t * Math.PI / 180);
-                                if (a > 0 && a < coord.Width && b > 0 && b < coord.Height && pixels[coord.Get((int)a, (int)b)] == 0 && (prevA != (int)a || prevB != (int)b))
-                                {
-                                    prevA = (int)a;
-                                    prevB = (int)b;
-                                    scoreTab[x, y, r] = (scoreTab[x, y, r] * r + 1) / ((double)(r^2));
-                                    if (scoreTab[x, y, r] > maxVal)  /// (2 * Math.PI * (double)r)
-                                    {
-                                        bestConfig = new double[] { x, y, r, scoreTab[x, y, r] };
-                                        maxVal = scoreTab[x, y, r];/// / (2*Math.PI*(double)r);
-                                    }
-                                }
-                            }
+                            prevA = (int)a;
+                            prevB = (int)b;
+                            scoreTab[r] = (scoreTab[r] * r + 1) / (double)r;
                         }
                     }
                 }
+                var totalAverage = 0.0;
+                var counter = 0;
+                for (int r = startR; r < endR; r += 2, counter++)
+                {
+                    totalAverage += scoreTab[r];
+                }
+                totalAverage /= counter;
+                int indexToReturn = 0;
+                for (int r = startR; r < endR; r += 2)
+                {
+                    if (scoreTab[r] > totalAverage)
+                    {
+                        indexToReturn = r;
+                    }
+                }
+                bestConfig = new double[] { xCenter, yCenter, indexToReturn, scoreTab[indexToReturn] };
                 scoreList.Add(bestConfig);
             });
             return;
