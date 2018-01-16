@@ -1182,7 +1182,8 @@ namespace ComputerGraphicsProject1
         private async void IrisDetectionButton_Click(object sender, RoutedEventArgs e)
         {
             var stopwatch = Stopwatch.StartNew();
-            var scale = 0.6;
+            //var scale = 0.6;
+            var scale = 1.0;
             var eyeBitmap = new WriteableBitmap(bitmap);
             int stride = eyeBitmap.PixelWidth * 4;
             int size = eyeBitmap.PixelHeight * stride;
@@ -1190,10 +1191,11 @@ namespace ComputerGraphicsProject1
             var gaussianSmothingFilter = CreateGaussianSmothingFilter(2);
             eyeBitmap = convolutionFunction(eyeBitmap, gaussianSmothingFilter);
             ToGrayScale(eyeBitmap);
-            eyeBitmap = ErodeGrayscaleImage(eyeBitmap);
-            var irisXCoord = (int)((double)CalculateIrisXCoord(eyeBitmap) * scale);
-            var irisYCoord = (int)((double)CalculateIrisYCoord(eyeBitmap) * scale);
-
+            eyeBitmap = ErodeGrayscaleImage(eyeBitmap,15);
+            var xValues = CalculateIrisXCoord(eyeBitmap); ;
+            var irisXCoord = (int)((double)xValues[0] * scale);
+            var irisYCoord = (int)((double)CalculateIrisYCoord(eyeBitmap,xValues[1],xValues[2]) * scale);
+            eyeBitmap = DrawPoint(eyeBitmap, irisXCoord, irisYCoord);
             //###########################################
             //########### PUPIL COMPUTATIONS ############
             //###########################################
@@ -1223,33 +1225,79 @@ namespace ComputerGraphicsProject1
             //###########################################
             //########## RETINA COMPUTATIONS ############
             //###########################################
+             eyeBitmap = RemovePupil(eyeBitmap);
+             int gaussianCoefficient;
+             int.TryParse(gaussianCoefficientTextBox.Text, out gaussianCoefficient);
+             int threshold = CalculateThreshold(eyeBitmap, gaussianCoefficient);
+             eyeBitmap = ErodeGrayscaleImage(eyeBitmap,threshold);
+             eyeBitmap = ErodeGrayscaleImage(eyeBitmap, threshold);
+             eyeBitmap = ErodeGrayscaleImage(eyeBitmap, threshold);
+             eyeBitmap = ComputeThresholdImage(eyeBitmap, 15);
+             eyeBitmap = HelperFunctions.resize_image(eyeBitmap, scale);
+             //eyeBitmap = DrawPoint(eyeBitmap, irisXCoord, irisYCoord);
+             eyeBitmap = ComputeThresholdImage(eyeBitmap, 80);
+             configList = await CalculateOriginAndRadius(eyeBitmap, irisXCoord, irisYCoord, (int)(rLenght * 1.1));
 
-            //var robertsCrossFilter = CreateRobertsCrossFilter();
-            //eyeBitmap = convolutionFunction(eyeBitmap, robertsCrossFilter, 0, 60);
-            /* var offset = -55;
-             int threshold = CalculateThreshold(eyeBitmap,offset);*/
+             foreach (var config in configList)
+             {
+                 eyeBitmap = DrawCircle(eyeBitmap, new int[] { (int)config[0], (int)config[1], (int)config[2] });
+             }
 
-            /*eyeBitmap = ErodeImage(eyeBitmap);
-            eyeBitmap = ErodeImage(eyeBitmap);
-            //eyeBitmap = ErodeImage(eyeBitmap);*/
-
-            /*foreach (var config in configList)
+            var totalIrisAverage = 0.0;
+            foreach (var config in configList)
             {
-                eyeBitmap = DrawCircle(eyeBitmap, new int[] { (int)config[0], (int)config[1], (int)config[2] });
-            }*/
+                totalIrisAverage += config[3];
+            }
+            totalIrisAverage /= (configList.Count * 2);
+            double[] irisConfig = new double[3];
+            rLenght = 0;
+            foreach (var config in configList)
+            {
+                if (config[3] > totalIrisAverage && config[2] > rLenght)
+                {
+                    irisConfig = config;
+                    rLenght = (int)config[2];
+                }
+            }
 
             //##################################
             //########## RESULTS ###############
             //##################################
-            /* var result = new WriteableBitmap(bitmap);
-             result = DrawCircle(result, new int[] { (int)(pupilConfig[0] / scale), (int)(pupilConfig[1] / scale), (int)(pupilConfig[2] / scale) });
-             photoImage.Source = result;*/
+            var result = new WriteableBitmap(bitmap);
+            result = DrawCircle(result, new int[] { (int)(pupilConfig[0] / scale), (int)(pupilConfig[1] / scale), (int)(pupilConfig[2] / scale) });
+            result = DrawCircle(result, new int[] { (int)(irisConfig[0] / scale), (int)(irisConfig[1] / scale), (int)(irisConfig[2] / scale) });
+            photoImage.Source = result;
 
-            photoImage.Source = eyeBitmap;
+            /*photoImage.Source = eyeBitmap;*/
             /* modifiedBitmap.WritePixels(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight), pixels, stride, 0);
               photoImage.Source = modifiedBitmap;*/
             stopwatch.Stop();
             Console.WriteLine(stopwatch.ElapsedMilliseconds);
+        }
+
+        private WriteableBitmap RemovePupil(WriteableBitmap input)
+        {
+            var height = input.PixelHeight;
+            var width = input.PixelWidth;
+            var coord = new Coord(height, width);
+            var pixels = new byte[coord.Size];
+            input.CopyPixels(pixels, coord.Stride, 0);
+            for(int x=0;x<width;x++)
+            {
+                for(int y=0;y<height;y++)
+                {
+                    var index = coord.Get(x, y);
+                    if(pixels[index] < 3)
+                    {
+                        pixels[index] = 255;
+                        pixels[index+1] = 255;
+                        pixels[index+2] = 255;
+                    }
+                }
+            }
+            WriteableBitmap tmpBitmap = new WriteableBitmap(input);
+            tmpBitmap.WritePixels(new Int32Rect(0, 0, width, height), pixels, coord.Stride, 0);
+            return tmpBitmap;
         }
 
         private WriteableBitmap DrawPoint(WriteableBitmap input, int xCoord, int yCoord)
@@ -1276,10 +1324,8 @@ namespace ComputerGraphicsProject1
             return tmpBitmap;
         }
 
-        private WriteableBitmap ErodeGrayscaleImage(WriteableBitmap input)
+        private WriteableBitmap ErodeGrayscaleImage(WriteableBitmap input, int blackLevel = 10, byte difference = 40)
         {
-            int blackLevel = 10;
-            byte difference = 40;
             var height = input.PixelHeight;
             var width = input.PixelWidth;
             var coord = new Coord(height, width);
@@ -1307,7 +1353,7 @@ namespace ComputerGraphicsProject1
                             newPixels[index + 2] = 255;
                         }
                     }
-                    else if (pixels[coord.Get(x, y)] < blackLevel && pixels[coord.Get(x, y - 1)] < blackLevel && pixels[coord.Get(x, y + 1)] < blackLevel && pixels[coord.Get(x + 1, y)] < blackLevel && pixels[coord.Get(x - 1, y)] < blackLevel)
+                    else if (coord.Get(x+1, y + 1) < coord.Size  && pixels[coord.Get(x, y)] < blackLevel && pixels[coord.Get(x, y - 1)] < blackLevel && pixels[coord.Get(x, y + 1)] < blackLevel && pixels[coord.Get(x + 1, y)] < blackLevel && pixels[coord.Get(x - 1, y)] < blackLevel)
                     {
                         var index = coord.Get(x, y);
                         if (newPixels[index] - difference > 0)
@@ -1378,28 +1424,29 @@ namespace ComputerGraphicsProject1
             return tmpBitmap;
         }
 
-        private int CalculateIrisYCoord(WriteableBitmap input)
+        private int CalculateIrisYCoord(WriteableBitmap input, int startX, int endX)
         {
+            var offset = 60;
             var bucketWidth = 5;
             var height = input.PixelHeight;
             var width = input.PixelWidth;
             var coord = new Coord(height, width);
             var pixels = new byte[coord.Size];
             input.CopyPixels(pixels, coord.Stride, 0);
-            var buckets = new int[height / bucketWidth];
-            for (int i = 0, bucketCounter = 0; i < height - bucketWidth; i += bucketWidth, bucketCounter++)
+            var buckets = new int[(height-2* offset) / bucketWidth];
+            for (int i = offset, bucketCounter = 0; i < height - bucketWidth- offset; i += bucketWidth, bucketCounter++)
             {
                 buckets[bucketCounter] = 0;
                 for (int j = i; j < i + bucketWidth; j++)
                 {
-                    for (int x = 0; x < width; x++)
+                    for (int x = startX; x < endX; x++)
                     {
                         if(pixels[coord.Get(x, j)] < 10)
                         buckets[bucketCounter] ++;
                     }
                 }
             }
-            int totalAverage = 0;
+            double totalAverage = 0.0;
             int totalNonEmptyBuckets = 0;
             for (int a = 0; a < buckets.Count(); a++)
             {
@@ -1412,7 +1459,7 @@ namespace ComputerGraphicsProject1
             totalAverage /= (totalNonEmptyBuckets * 3);
             int minIndex = 0;
             int maxIndex = 0;
-            for (int a = 0; a < buckets.Count(); a++)
+            for (int a = buckets.Count()-1; a > 0; a--)
             {
                 if (buckets[a] > totalAverage)
                 {
@@ -1422,26 +1469,31 @@ namespace ComputerGraphicsProject1
                     }
                     maxIndex = a;
                 }
+                else if (maxIndex != 0)
+                {
+                    break;
+                }
             }
             var averageIndex = ((double)(minIndex + maxIndex) / 2.0);
-            return (int)(averageIndex * bucketWidth);
+            return offset+(int)(averageIndex * bucketWidth);
         }
 
-        private int CalculateIrisXCoord(WriteableBitmap input)
+        private int[] CalculateIrisXCoord(WriteableBitmap input)
         {
+            var offset = 60;
             var bucketWidth = 5;
             var height = input.PixelHeight;
             var width = input.PixelWidth;
             var coord = new Coord(height, width);
             var pixels = new byte[coord.Size];
             input.CopyPixels(pixels, coord.Stride, 0);
-            var buckets = new int[width / bucketWidth];
-            for (int i = 0, bucketCounter = 0; i < width- bucketWidth; i += bucketWidth, bucketCounter++)
+            var buckets = new int[(width- offset*2) / bucketWidth];
+            for (int i = offset, bucketCounter = 0; i < width- offset- bucketWidth; i += bucketWidth, bucketCounter++)
             {
                 buckets[bucketCounter] = 0;
                 for (int j = i; j < i + bucketWidth; j++)
                 {
-                    for (int y = 0; y < height; y++)
+                    for (int y = offset; y < height- offset; y++)
                     {
                         if(pixels[coord.Get(j, y)]<15)
                         {
@@ -1451,7 +1503,7 @@ namespace ComputerGraphicsProject1
                     }
                 }
             }
-            int totalAverage = 0;
+            double totalAverage = 0.0;
             int totalNonEmptyBuckets = 0;
             for (int a = 0; a < buckets.Count(); a++)
             {
@@ -1461,7 +1513,7 @@ namespace ComputerGraphicsProject1
                     totalNonEmptyBuckets++;
                 }
             }
-            totalAverage /= (totalNonEmptyBuckets*3);
+            totalAverage /= (totalNonEmptyBuckets*3.2);
             int minIndex = 0;
             int maxIndex = 0;
             for (int a = 0; a < buckets.Count(); a++)
@@ -1474,9 +1526,13 @@ namespace ComputerGraphicsProject1
                     }
                     maxIndex = a;
                 }
+                else if(maxIndex!=0)
+                {
+                    break;
+                }
             }
             var averageIndex = ((double)(minIndex + maxIndex) / 2.0);
-            return (int)averageIndex * bucketWidth;
+            return new int[] { offset+(int)(averageIndex * bucketWidth), offset+ minIndex * bucketWidth, offset+maxIndex * bucketWidth };
         }
 
         private int CalculateThreshold(WriteableBitmap input,int offset)
@@ -1498,7 +1554,7 @@ namespace ComputerGraphicsProject1
             return (int)threshold+offset;
         }
 
-        private async Task<ConcurrentBag<double[]>> CalculateOriginAndRadius(WriteableBitmap inputBitmap, int xCenter, int yCenter)
+        private async Task<ConcurrentBag<double[]>> CalculateOriginAndRadius(WriteableBitmap inputBitmap, int xCenter, int yCenter, int startingR = 5)
         {
             var height = inputBitmap.PixelHeight;
             //height = height % 2 == 1 ? height - 1 : height;
@@ -1510,7 +1566,7 @@ namespace ComputerGraphicsProject1
             int widthPerCore = (coord.Width / 2 -5) / 13;
             var scoresList = new ConcurrentBag<double[]>();
             var tasks = new List<Task>();
-            for (int i = 5; i < coord.Width/2; i += widthPerCore)
+            for (int i = startingR; i < coord.Width/2; i += widthPerCore)
             {
                 //await TestFunc();
                 tasks.Add(CalculateScoreAsync(scoresList, pixels, new Coord(coord), i, i + widthPerCore, xCenter,yCenter));
