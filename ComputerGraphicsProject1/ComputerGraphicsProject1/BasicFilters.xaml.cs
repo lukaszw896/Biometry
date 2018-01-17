@@ -1248,7 +1248,7 @@ namespace ComputerGraphicsProject1
             {
                 totalIrisAverage += config[3];
             }
-            totalIrisAverage /= (configList.Count * 2);
+            totalIrisAverage /= (configList.Count * 3);
             double[] irisConfig = new double[3];
             rLenght = 0;
             foreach (var config in configList)
@@ -1513,7 +1513,7 @@ namespace ComputerGraphicsProject1
                     totalNonEmptyBuckets++;
                 }
             }
-            totalAverage /= (totalNonEmptyBuckets*3.2);
+            totalAverage /= (totalNonEmptyBuckets*3.0);
             int minIndex = 0;
             int maxIndex = 0;
             for (int a = 0; a < buckets.Count(); a++)

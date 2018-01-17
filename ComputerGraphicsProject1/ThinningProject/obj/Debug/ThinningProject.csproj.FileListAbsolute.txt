@@ -1,0 +1,15 @@
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\bin\Debug\ThinningProject.exe.config
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\bin\Debug\ThinningProject.exe
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\bin\Debug\ThinningProject.pdb
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\obj\Debug\ThinningProject.csprojResolveAssemblyReference.cache
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\obj\Debug\MainWindow.g.cs
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\obj\Debug\App.g.cs
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\obj\Debug\ThinningProject_MarkupCompile.cache
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\obj\Debug\ThinningProject_MarkupCompile.lref
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\obj\Debug\MainWindow.baml
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\obj\Debug\ThinningProject.g.resources
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\obj\Debug\ThinningProject.Properties.Resources.resources
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\obj\Debug\ThinningProject.csproj.GenerateResource.Cache
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\obj\Debug\ThinningProject.csproj.CoreCompileInputs.cache
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\obj\Debug\ThinningProject.exe
+C:\Uczelnia\Analiza\ComputerGraphicsProject1\ThinningProject\obj\Debug\ThinningProject.pdb
