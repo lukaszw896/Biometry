@@ -91,16 +91,20 @@ namespace ThinningProject
 
         private void KMMButton_Click(object sender, RoutedEventArgs e)
         {
+            var stopwatch = Stopwatch.StartNew();
             var preProcessedOryginal = PreProcessing();
-            ThinedImage.Source = preProcessedOryginal;
+            //ThinedImage.Source = preProcessedOryginal;
+            WriteableBitmap bitmap = new WriteableBitmap(preProcessedOryginal);
+            var result = KMM(bitmap);
+            ThinedImage.Source = result;
+            stopwatch.Stop();
+            Console.WriteLine("Whole computations "+stopwatch.ElapsedMilliseconds);
         }
 
 
         private WriteableBitmap PreProcessing()
         {
             var stopwatch = Stopwatch.StartNew();
-            //var scale = 0.6;
-            var scale = 1.0;
             var fingerBitmap = new WriteableBitmap(OryginalBitmap);
             int stride = fingerBitmap.PixelWidth * 4;
             int size = fingerBitmap.PixelHeight * stride;
@@ -112,7 +116,7 @@ namespace ThinningProject
             int threshold = CalculateThreshold(fingerBitmap, 0);
             fingerBitmap = ComputeThresholdImage(fingerBitmap, threshold);
             stopwatch.Stop();
-            Console.WriteLine(stopwatch.ElapsedMilliseconds);
+            Console.WriteLine("Preprocessing " + stopwatch.ElapsedMilliseconds);
             return fingerBitmap;
         }
 
@@ -121,11 +125,226 @@ namespace ThinningProject
 
         }
 
-        /*private WriteableBitmap KMM(WriteableBitmap input)
+        private WriteableBitmap KMM(WriteableBitmap input)
         {
+            var height = input.PixelHeight;
+            var width = input.PixelWidth;
+            var coord = new Coord(height, width);
+            var pixels = new byte[coord.Size];
+            input.CopyPixels(pixels, coord.Stride, 0);
+
+            int removedPixelsCounter = 0;
+            //1. Black pixels = 1, white pixels = 0
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    var index = coord.Get(x, y);
+                    if (pixels[index] == 0)
+                        pixels[index] = 1;
+                    else
+                    {
+                        pixels[index] = 0;
+                    }
+
+                }
+            }
+            do
+            {
+                removedPixelsCounter = 0;
+                //2 AND 3. 1's in contact with 0's are changed into 2. 1's in contact with 0's only by one corner of mask are changed into 3's
+                var mask = GetMask();
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        var index = coord.Get(x, y);
+                        if (pixels[index] != 0)
+                        {
+                            var pixelValue = Get23StagePixelValue(mask, pixels, coord, x, y);
+                            pixels[index] = (byte)pixelValue;
+                        }
+                    }
+                }
+
+                ///4. Find 4's
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        var index = coord.Get(x, y);
+                        if (pixels[index] != 0 && DeletePixel(mask, pixels, coord, x, y))
+                        {
+                            pixels[index] = 4;
+                        }
+                    }
+                }
+                //4. Remove 4's
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        var index = coord.Get(x, y);
+                        if (pixels[index] == 4)
+                        {
+                            removedPixelsCounter++;
+                            pixels[index] = 0;
+                        }
+                    }
+                }
+                //5. Determine whether 2's and 3's are connectors
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        var index = coord.Get(x, y);
+                        if (pixels[index] == 2)
+                        {
+                            if (IsConnector(pixels, coord, x, y, mask))
+                            {
+                                pixels[index] = 0;
+                                removedPixelsCounter++;
+                            }
+                            else
+                            {
+                                pixels[index] = 1;
+                            }
+                        }
+                    }
+                }
+                //5. Determine whether 3's are connectors
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        var index = coord.Get(x, y);
+                        if (pixels[index] == 3)
+                        {
+                            if (IsConnector(pixels, coord, x, y, mask))
+                            {
+                                pixels[index] = 0;
+                                removedPixelsCounter++;
+                            }
+                            else
+                            {
+                                pixels[index] = 1;
+                            }
+                        }
+                    }
+                }
+                for (int x = 0; x < width; x++)
+                {
+                    for (int y = 0; y < height; y++)
+                    {
+                        var index = coord.Get(x, y);
+                        if (pixels[index] != 0)
+                            pixels[index] = 1;
+                    }
+                }
+                Console.WriteLine("Removed pixels: " + removedPixelsCounter);
+            } while (removedPixelsCounter != 0);
+
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    var index = coord.Get(x, y);
+                    /* if (pixels[index] == 1)
+                     {
+                         pixels[index] = 0;
+                         pixels[index + 1] = 0;
+                         pixels[index + 2] = 0;*/
+                    if (pixels[index] == 0)
+                    {
+                        pixels[index] = 255;
+                        pixels[index + 1] = 255;
+                        pixels[index + 2] = 255;
+                    }
+                    else if (pixels[index] == 2)
+                    {
+                        pixels[index] = 255;
+                    }
+                    else if (pixels[index] == 3)
+                    {
+                        pixels[index + 2] = 255;
+                    }
+                    else if (pixels[index] == 4)
+                    {
+                        pixels[index + 1] = 255;
+                    }
+                    else
+                    {
+                        pixels[index] = 0;
+                        pixels[index + 1] = 0;
+                        pixels[index + 2] = 0;
+                    }
+                }
+            }
+
+            WriteableBitmap tmpBitmap = new WriteableBitmap(input);
+            tmpBitmap.WritePixels(new Int32Rect(0, 0, width, height), pixels, coord.Stride, 0);
+            return tmpBitmap;
+        }
+
+        private bool IsConnector(byte[] pixels, Coord coord, int x, int y, int[,] mask)
+        {
+            var score = CalculateScore(pixels, coord, x, y, mask);
+            if (Tables.deletionTable.Where(m => m == score).Count() > 0)
+                return true;
+            else
+                return false;
 
         }
-        */
+
+        private int Get23StagePixelValue(int[,] mask, byte[] pixels, Coord coord, int x, int y)
+        {
+            var score = CalculateScore(pixels, coord, x, y, mask);
+            //checking if in contact with 0 at all
+            if (score == 255)
+                return 1;
+            //checking for corners
+            else if ((pixels[coord.Get(x,y-1)]>= 1 && pixels[coord.Get(x+1, y )] >= 1 && pixels[coord.Get(x, y +1)] >= 1 && pixels[coord.Get(x-1, y)] >= 1)
+                && (pixels[coord.Get(x-1, y - 1)] == 0 || pixels[coord.Get(x+1, y - 1)] == 0 || pixels[coord.Get(x-1, y +1)] == 0 || pixels[coord.Get(x+1, y + 1)] == 0))
+                return 3;
+            else
+                return 2;
+            
+        }
+        private bool DeletePixel(int[,] mask, byte[] pixels, Coord coord, int x, int y)
+        {
+            var score = CalculateScore(pixels, coord, x, y, mask);
+
+            if (Tables.A234.Where(me => me == score).Count() > 0)
+                return true;
+
+            return false;
+        }
+
+        private int CalculateScore(byte[] pixels, Coord coord, int x, int y, int[,] mask)
+        {
+            var score = 0;
+            for (int xm = x - 1, mx = 0; xm <= x + 1; xm++, mx++)
+            {
+                for (int ym = y - 1, my = 0; ym <= y + 1; ym++, my++)
+                {
+                    var val = pixels[coord.Get(xm, ym)] != 0 ? 1 : 0;
+                    score += val * mask[mx, my];
+                }
+            }
+            return score;
+        }
+
+        private int[,] GetMask()
+        {
+            var mask = new int[3, 3]
+            {
+                { 128, 1, 2 },
+                { 64, 0, 4 },
+                { 32, 16, 8}
+            };
+            return mask;
+        }
+
         private WriteableBitmap ComputeThresholdImage(WriteableBitmap inputBitmap, int threshold)
         {
             int stride = inputBitmap.PixelWidth * 4;
