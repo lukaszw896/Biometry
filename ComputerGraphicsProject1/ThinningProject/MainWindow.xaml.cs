@@ -29,7 +29,7 @@ namespace ThinningProject
     /// </summary>
     public partial class MainWindow : Window
     {
-        private WriteableBitmap OryginalBitmap{ get; set; }
+        private WriteableBitmap OryginalBitmap { get; set; }
         public MainWindow()
         {
             InitializeComponent();
@@ -98,7 +98,7 @@ namespace ThinningProject
             var result = KMM(bitmap);
             ThinedImage.Source = result;
             stopwatch.Stop();
-            Console.WriteLine("Whole computations "+stopwatch.ElapsedMilliseconds);
+            Console.WriteLine("Whole computations " + stopwatch.ElapsedMilliseconds);
         }
 
 
@@ -122,7 +122,221 @@ namespace ThinningProject
 
         private void K3MButton_Click(object sender, RoutedEventArgs e)
         {
+            var stopwatch = Stopwatch.StartNew();
+            var preProcessedOryginal = PreProcessing();
+            //ThinedImage.Source = preProcessedOryginal;
+            WriteableBitmap bitmap = new WriteableBitmap(preProcessedOryginal);
+            var result = K3M(bitmap);
+            ThinedImage.Source = result;
+            stopwatch.Stop();
+            Console.WriteLine("Whole computations " + stopwatch.ElapsedMilliseconds);
+        }
 
+        private WriteableBitmap K3M(WriteableBitmap input)
+        {
+            var height = input.PixelHeight;
+            var width = input.PixelWidth;
+            var coord = new Coord(height, width);
+            var pixels = new byte[coord.Size];
+            input.CopyPixels(pixels, coord.Stride, 0);
+
+            int removedPixelsCounter = 0;
+            //1. Black pixels = 1, white pixels = 0
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    var index = coord.Get(x, y);
+                    if (pixels[index] == 0)
+                        pixels[index] = 1;
+                    else
+                    {
+                        pixels[index] = 0;
+                    }
+
+                }
+            }
+            var mask = GetMask();
+            do
+            {
+                removedPixelsCounter = 0;
+                //PHASE 0 - marking borders
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        var index = coord.Get(x, y);
+                        if (pixels[index] != 0 && IsPixelInPhase(mask, pixels, coord, x, y,0))
+                        {
+                            pixels[index] = 2;
+                        }
+                    }
+                }
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        var index = coord.Get(x, y);
+                        if (pixels[index] == 2 && IsPixelInPhase(mask, pixels, coord, x, y, 1))
+                        {
+                            pixels[index] = 0;
+                            removedPixelsCounter++;
+                        }
+                    }
+                }
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        var index = coord.Get(x, y);
+                        if (pixels[index] == 2 && IsPixelInPhase(mask, pixels, coord, x, y, 2))
+                        {
+                            pixels[index] = 0;
+                            removedPixelsCounter++;
+                        }
+                    }
+                }
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        var index = coord.Get(x, y);
+                        if (pixels[index] == 2 && IsPixelInPhase(mask, pixels, coord, x, y, 3))
+                        {
+                            pixels[index] = 0;
+                            removedPixelsCounter++;
+                        }
+                    }
+                }
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        var index = coord.Get(x, y);
+                        if (pixels[index] == 2 && IsPixelInPhase(mask, pixels, coord, x, y, 4))
+                        {
+                            pixels[index] = 0;
+                            removedPixelsCounter++;
+                        }
+                    }
+                }
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        var index = coord.Get(x, y);
+                        if (pixels[index] == 2 && IsPixelInPhase(mask, pixels, coord, x, y, 5))
+                        {
+                            pixels[index] = 0;
+                            removedPixelsCounter++;
+                        }
+                    }
+                }
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        var index = coord.Get(x, y);
+                        if (pixels[index] == 2)
+                        {
+                            pixels[index] = 1;
+                        }
+                    }
+                }
+            } while (removedPixelsCounter != 0);
+
+            for (int x = 1; x < width - 1; x++)
+            {
+                for (int y = 1; y < height - 1; y++)
+                {
+                    var index = coord.Get(x, y);
+                    if (pixels[index] == 2 && IsPixelInPhase(mask, pixels, coord, x, y, 6))
+                    {
+                        pixels[index] = 0;
+                    }
+                }
+            }
+
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    var index = coord.Get(x, y);
+                    /* if (pixels[index] == 1)
+                     {
+                         pixels[index] = 0;
+                         pixels[index + 1] = 0;
+                         pixels[index + 2] = 0;*/
+                    if (pixels[index] == 0)
+                    {
+                        pixels[index] = 255;
+                        pixels[index + 1] = 255;
+                        pixels[index + 2] = 255;
+                    }
+                    else if (pixels[index] == 2)
+                    {
+                        pixels[index] = 255;
+                    }
+                    else if (pixels[index] == 3)
+                    {
+                        pixels[index + 2] = 255;
+                    }
+                    else if (pixels[index] == 4)
+                    {
+                        pixels[index + 1] = 255;
+                    }
+                    else
+                    {
+                        pixels[index] = 0;
+                        pixels[index + 1] = 0;
+                        pixels[index + 2] = 0;
+                    }
+                }
+            }
+
+            WriteableBitmap tmpBitmap = new WriteableBitmap(input);
+            tmpBitmap.WritePixels(new Int32Rect(0, 0, width, height), pixels, coord.Stride, 0);
+            return tmpBitmap;
+        }
+
+        private bool IsPixelInPhase(int[,] mask, byte[] pixels, Coord coord, int x, int y, int phase)
+        {
+            var score = CalculateScore(pixels, coord, x, y, mask);
+            //checking if in contact with 0 at all
+            switch (phase)
+            {
+                case 0:
+                    if (Tables.A0.Where(m => m == score).Count() > 0)
+                        return true;
+                    break;
+                case 1:
+                    if (Tables.A1.Where(m => m == score).Count() > 0)
+                        return true;
+                    break;
+                case 2:
+                    if (Tables.A2.Where(m => m == score).Count() > 0)
+                        return true;
+                    break;
+                case 3:
+                    if (Tables.A3.Where(m => m == score).Count() > 0)
+                        return true;
+                    break;
+                case 4:
+                    if (Tables.A4.Where(m => m == score).Count() > 0)
+                        return true;
+                    break;
+                case 5:
+                    if (Tables.A5.Where(m => m == score).Count() > 0)
+                        return true;
+                    break;
+                case 6:
+                    if (Tables.A1pix.Where(m => m == score).Count() > 0)
+                        return true;
+                    break;
+                
+
+            }           
+             return false;
         }
 
         private WriteableBitmap KMM(WriteableBitmap input)
@@ -303,12 +517,12 @@ namespace ThinningProject
             if (score == 255)
                 return 1;
             //checking for corners
-            else if ((pixels[coord.Get(x,y-1)]>= 1 && pixels[coord.Get(x+1, y )] >= 1 && pixels[coord.Get(x, y +1)] >= 1 && pixels[coord.Get(x-1, y)] >= 1)
-                && (pixels[coord.Get(x-1, y - 1)] == 0 || pixels[coord.Get(x+1, y - 1)] == 0 || pixels[coord.Get(x-1, y +1)] == 0 || pixels[coord.Get(x+1, y + 1)] == 0))
+            else if ((pixels[coord.Get(x, y - 1)] >= 1 && pixels[coord.Get(x + 1, y)] >= 1 && pixels[coord.Get(x, y + 1)] >= 1 && pixels[coord.Get(x - 1, y)] >= 1)
+                && (pixels[coord.Get(x - 1, y - 1)] == 0 || pixels[coord.Get(x + 1, y - 1)] == 0 || pixels[coord.Get(x - 1, y + 1)] == 0 || pixels[coord.Get(x + 1, y + 1)] == 0))
                 return 3;
             else
                 return 2;
-            
+
         }
         private bool DeletePixel(int[,] mask, byte[] pixels, Coord coord, int x, int y)
         {
